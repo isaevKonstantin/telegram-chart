@@ -1,6 +1,6 @@
 package com.konstantinisaev.telegram.chart;
 
-import android.util.Log;
+import android.text.TextUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,6 +15,7 @@ import org.json.JSONObject;
 public class ChartData {
 
 	private List<ChartItem> items;
+	private Map<Long,Long> postions = new HashMap<>();
 
 	public List<ChartItem> getItems() {
 		return items;
@@ -71,8 +72,6 @@ public class ChartData {
 						}
 					}
 				}
-
-
 			}
 
 			chartItems.addAll(chartsItemMap.values());
@@ -92,6 +91,7 @@ class ChartItem {
 	private String title;
 	private String color;
 	private List<Long> positions;
+	private long max;
 
 	public String getType() {
 		return type;
@@ -125,7 +125,22 @@ class ChartItem {
 		this.positions = positions;
 	}
 
+	public long getMax() {
+		return max;
+	}
+
+	public void setMax(long max) {
+		this.max = max;
+	}
+
 	public void addPosition(Long position){
 		positions.add(position);
+		if(max < position){
+			max = position;
+		}
+	}
+
+	public boolean isLine(){
+		return !TextUtils.isEmpty(type) && type.equals("line");
 	}
 }

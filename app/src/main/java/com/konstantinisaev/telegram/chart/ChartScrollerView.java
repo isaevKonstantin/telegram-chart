@@ -2,7 +2,9 @@ package com.konstantinisaev.telegram.chart;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
 import android.os.Build;
 import android.support.annotation.RequiresApi;
@@ -11,6 +13,8 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
+
+import java.util.List;
 
 public class ChartScrollerView extends ViewGroup {
 
@@ -25,6 +29,7 @@ public class ChartScrollerView extends ViewGroup {
 	private float beginX;
 	private float endX;
 	private Paint blueStrokePaint;
+	private List<ChartData> data;
 
 	public ChartScrollerView(Context context) {
 		super(context);
@@ -88,6 +93,44 @@ public class ChartScrollerView extends ViewGroup {
 		canvas.drawLine(selectRect.left,0,selectRect.right,0, blueStrokePaint);
 		canvas.drawLine(selectRect.left,canvas.getHeight(),selectRect.right,canvas.getHeight(), blueStrokePaint);
 
+		if(!data.isEmpty()){
+			ChartData chartData = data.get(0);
+			float koeficientY;
+			float koeficientX;
+			float maxY = 0.0f;
+			float maxX = 0.0f;
+			for (ChartItem item : chartData.getItems()) {
+				if(item.isLine()){
+					if(maxY < item.getMax()){
+						maxY = item.getMax();
+					}
+				}else {
+					if(maxX < item.getMax()){
+						maxX = item.getMax();
+					}
+
+				}
+			}
+			koeficientX = canvas.getWidth() / 112f;
+			koeficientY = canvas.getHeight() / maxY;
+			Paint paint = new Paint();
+			paint.setStyle(Paint.Style.FILL);
+			paint.setStrokeWidth(5f);
+
+			for (ChartItem item : chartData.getItems()) {
+				if(item.isLine()){
+					paint.setColor(Color.parseColor(item.getColor()));
+					for (int i = 0; i < item.getPositions().size() - 1; i++) {
+						float nextX = koeficientX * (i + 1);
+						float nextY = canvas.getHeight() - (item.getPositions().get(i + 1) * koeficientY);
+						canvas.drawLine(i * koeficientX, canvas.getHeight() - (item.getPositions().get(i) * koeficientY),nextX,nextY,paint);
+					}
+				}
+			}
+
+		}
+
+
 
 	}
 
@@ -107,6 +150,11 @@ public class ChartScrollerView extends ViewGroup {
 
 	private void log(String message){
 		Log.i(TAG,message);
+	}
+
+	public void bindData(List<ChartData> chartData) {
+		this.data = chartData;
+		invalidate();
 	}
 }
 

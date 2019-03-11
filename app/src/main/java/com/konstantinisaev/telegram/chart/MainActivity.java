@@ -7,6 +7,8 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -14,11 +16,13 @@ import org.json.JSONObject;
 
 public class MainActivity extends AppCompatActivity {
 
+	private ChartScrollerView chartScrollerView;
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-		findViewById(R.id.scroller).invalidate();
+		chartScrollerView = findViewById(R.id.scroller);
 		parseJson();
 	}
 
@@ -29,11 +33,12 @@ public class MainActivity extends AppCompatActivity {
 		}
 		try {
 			JSONArray jsonArray = new JSONArray(json);
+			List<ChartData> chartData = new ArrayList<>();
 			for (int i = 0;i < jsonArray.length();i++){
 				JSONObject jsonObject = jsonArray.getJSONObject(i);
-				ChartData chartData = ChartData.parseFromJson(jsonObject);
-
+				chartData.add(ChartData.parseFromJson(jsonObject));
 			}
+			chartScrollerView.bindData(chartData);
 			Log.d(MainActivity.class.getSimpleName(),jsonArray.toString());
 		} catch (JSONException e) {
 			e.printStackTrace();
