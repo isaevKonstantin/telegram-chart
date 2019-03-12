@@ -32,6 +32,8 @@ public class ChartView extends ViewGroup {
 	private float scrollerHeight = dpToPx(getContext(),80f);
 	private float contentHeight = dpToPx(getContext(),300f);
 	private float verticalMargin = dpToPx(getContext(),16f);
+	private float textHeaderInPixels = getResources().getDimensionPixelSize(R.dimen.text18);
+
 	private Rect unselectRect;
 
 	public ChartView(Context context) {
@@ -66,7 +68,7 @@ public class ChartView extends ViewGroup {
 
 		blueStrokePaint = new Paint();
 		blueStrokePaint.setColor(ContextCompat.getColor(getContext(), R.color.blue_scroller));
-		blueStrokePaint.setStrokeWidth(5f);
+		blueStrokePaint.setStrokeWidth(dpToPx(getContext(),3f));
 	}
 
 	@Override
@@ -83,6 +85,14 @@ public class ChartView extends ViewGroup {
 		Rect contentRect = new Rect(0, 0, canvas.getWidth(), Math.round(contentHeight));
 		canvas.drawRect(contentRect, whitePaint);
 
+		Paint textPaint = new Paint();
+		textPaint.setStyle(Paint.Style.FILL);
+
+		textPaint.setColor(ContextCompat.getColor(getContext(),R.color.colorPrimary));
+		textPaint.setTextSize(textHeaderInPixels);
+		textPaint.setStrokeWidth(dpToPx(getContext(),10f));
+		canvas.drawText(getResources().getString(R.string.main_chart_title), 0, textHeaderInPixels, textPaint);
+
 		int topScrollerY = Math.round(contentHeight + verticalMargin);
 		int bottomScrollerY = Math.round(contentHeight + verticalMargin + scrollerHeight);
 		unselectRect = new Rect(0,topScrollerY, canvas.getWidth(), bottomScrollerY);
@@ -94,6 +104,7 @@ public class ChartView extends ViewGroup {
 		}else {
 			selectRect = new Rect(Math.round(beginX),topScrollerY + 5,Math.round(endX),bottomScrollerY - 5);
 		}
+
 		canvas.drawRect(selectRect, whitePaint);
 
 		canvas.drawLine(selectRect.left,selectRect.top,selectRect.left,selectRect.bottom, blueStrokePaint);
