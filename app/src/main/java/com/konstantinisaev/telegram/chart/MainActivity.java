@@ -4,6 +4,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,7 +24,7 @@ public class MainActivity extends AppCompatActivity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-		chartView = findViewById(R.id.scroller);
+		chartView = findViewById(R.id.chartView);
 		parseJson();
 	}
 
@@ -47,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
 	}
 
 	private String loadJSONFromAsset() {
-		String json = null;
+		String json;
 		try {
 			InputStream is = this.getAssets().open("chart_data.json");
 			int size = is.available();
@@ -60,5 +62,11 @@ public class MainActivity extends AppCompatActivity {
 			return null;
 		}
 		return json;
+	}
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		getMenuInflater().inflate(R.menu.main,menu);
+		return super.onCreateOptionsMenu(menu);
 	}
 }

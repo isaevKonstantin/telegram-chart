@@ -1,3 +1,4 @@
 <resources>
 	<string name="app_name">telegram-chart</string>
+	<string name="main_act_title">Statistics</string>
 </resources>

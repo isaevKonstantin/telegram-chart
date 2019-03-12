@@ -8,7 +8,7 @@
 	tools:context=".MainActivity">
 
 	<com.konstantinisaev.telegram.chart.ChartView
-		android:id="@+id/scroller"
+		android:id="@+id/chartView"
 		android:layout_width="match_parent"
 		android:layout_height="400dp"
 		android:layout_margin="16dp"
