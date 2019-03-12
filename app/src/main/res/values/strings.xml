@@ -2,4 +2,5 @@
 	<string name="app_name">telegram-chart</string>
 	<string name="main_act_title">Statistics</string>
 	<string name="main_chart_title">Followers</string>
+	<string name="zero">0</string>
 </resources>

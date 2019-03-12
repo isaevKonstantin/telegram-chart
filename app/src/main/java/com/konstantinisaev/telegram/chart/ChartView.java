@@ -33,6 +33,7 @@ public class ChartView extends ViewGroup {
 	private float contentHeight = dpToPx(getContext(),300f);
 	private float verticalMargin = dpToPx(getContext(),16f);
 	private float textHeaderInPixels = getResources().getDimensionPixelSize(R.dimen.text18);
+	private float textTwelveInPixels = getResources().getDimensionPixelSize(R.dimen.text12);
 
 	private Rect unselectRect;
 
@@ -82,16 +83,16 @@ public class ChartView extends ViewGroup {
 	}
 
 	protected void drawGridBackground(Canvas canvas) {
-		Rect contentRect = new Rect(0, 0, canvas.getWidth(), Math.round(contentHeight));
-		canvas.drawRect(contentRect, whitePaint);
 
 		Paint textPaint = new Paint();
 		textPaint.setStyle(Paint.Style.FILL);
 
 		textPaint.setColor(ContextCompat.getColor(getContext(),R.color.colorPrimary));
 		textPaint.setTextSize(textHeaderInPixels);
-		textPaint.setStrokeWidth(dpToPx(getContext(),10f));
 		canvas.drawText(getResources().getString(R.string.main_chart_title), 0, textHeaderInPixels, textPaint);
+
+		Rect contentRect = new Rect(0,(int)(textHeaderInPixels + verticalMargin), canvas.getWidth(), Math.round(contentHeight));
+		canvas.drawRect(contentRect, whitePaint);
 
 		int topScrollerY = Math.round(contentHeight + verticalMargin);
 		int bottomScrollerY = Math.round(contentHeight + verticalMargin + scrollerHeight);
@@ -112,25 +113,22 @@ public class ChartView extends ViewGroup {
 		canvas.drawLine(selectRect.left,selectRect.top,selectRect.right,selectRect.top, blueStrokePaint);
 		canvas.drawLine(selectRect.left,selectRect.bottom,selectRect.right,selectRect.bottom, blueStrokePaint);
 
+		float stepYLines = contentRect.height() / 5f;
+		float initialYLines = contentRect.bottom;
+		while (initialYLines > contentRect.top){
+			initialYLines -= stepYLines;
+			canvas.drawLine(contentRect.left,initialYLines,contentRect.right,initialYLines,blueStrokePaint);
+		}
+		canvas.drawLine(contentRect.left,contentRect.bottom,contentRect.right,contentRect.bottom,blueStrokePaint);
+		textPaint.setTextSize(textTwelveInPixels);
+		canvas.drawText(getContext().getString(R.string.zero), contentRect.left, contentRect.bottom - dpToPx(getContext(),3f), textPaint);
+
 		if(!data.isEmpty()){
 			for (ChartData chartData : data) {
 				float scrollerKoeficientY;
 				float contentKoeficientY;
 				float scrollerKoeficientX;
-				float maxY = 1.0f;
-				float maxX = 1.0f;
-				for (ChartItem item : chartData.getItems()) {
-					if(item.isLine()){
-						if(maxY < item.getMax()){
-							maxY = item.getMax();
-						}
-					}else {
-						if(maxX < item.getMax()){
-							maxX = item.getMax();
-						}
-
-					}
-				}
+				float maxY = chartData.getMaxY();
 				scrollerKoeficientY = unselectRect.height() / maxY;
 				contentKoeficientY = contentRect.height() / maxY;
 				Paint paint = new Paint();

@@ -15,6 +15,9 @@ import org.json.JSONObject;
 public class ChartData {
 
 	private List<ChartItem> items;
+	private long maxY;
+	private long maxX;
+	private List<Integer> linesY = new ArrayList<>();
 
 	public List<ChartItem> getItems() {
 		return items;
@@ -22,6 +25,37 @@ public class ChartData {
 
 	public void setItems(List<ChartItem> items) {
 		this.items = items;
+		for (ChartItem item : items) {
+			if(item.isLine() ){
+				if(item.getMax() > maxY){
+					maxY = item.getMax();
+				}
+			}else {
+				if(item.getMax() > maxX){
+					maxX = item.getMax();
+				}
+			}
+		}
+	}
+
+	public long getMaxY() {
+		return maxY;
+	}
+
+	public long getMaxX() {
+		return maxX;
+	}
+
+	public List<Integer> getLinesY() {
+		return linesY;
+	}
+
+	private void fillYLines(int counter,int condition) {
+		int firtItem = counter;
+		while (firtItem <= condition){
+			firtItem += counter;
+			linesY.add(firtItem);
+		}
 	}
 
 	public static ChartData parseFromJson(JSONObject jsonObject){
