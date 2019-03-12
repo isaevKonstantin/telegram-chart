@@ -15,7 +15,6 @@ import org.json.JSONObject;
 public class ChartData {
 
 	private List<ChartItem> items;
-	private Map<Long,Long> postions = new HashMap<>();
 
 	public List<ChartItem> getItems() {
 		return items;

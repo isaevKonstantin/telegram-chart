@@ -16,13 +16,13 @@ import org.json.JSONObject;
 
 public class MainActivity extends AppCompatActivity {
 
-	private ChartScrollerView chartScrollerView;
+	private ChartView chartView;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-		chartScrollerView = findViewById(R.id.scroller);
+		chartView = findViewById(R.id.scroller);
 		parseJson();
 	}
 
@@ -38,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
 				JSONObject jsonObject = jsonArray.getJSONObject(i);
 				chartData.add(ChartData.parseFromJson(jsonObject));
 			}
-			chartScrollerView.bindData(chartData);
+			chartView.bindData(chartData);
 			Log.d(MainActivity.class.getSimpleName(),jsonArray.toString());
 		} catch (JSONException e) {
 			e.printStackTrace();
