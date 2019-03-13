@@ -15,6 +15,7 @@ import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ChartView extends ViewGroup {
@@ -32,6 +33,7 @@ public class ChartView extends ViewGroup {
 	private float scrollerHeight = dpToPx(getContext(),80f);
 	private float contentHeight = dpToPx(getContext(),300f);
 	private float verticalMargin = dpToPx(getContext(),16f);
+	private float oneDp = dpToPx(getContext(),1f);
 	private float textHeaderInPixels = getResources().getDimensionPixelSize(R.dimen.text18);
 	private float textTwelveInPixels = getResources().getDimensionPixelSize(R.dimen.text12);
 
@@ -40,6 +42,7 @@ public class ChartView extends ViewGroup {
 	private boolean draggingLeft = false;
 	private boolean draggingRight = false;
 	private boolean initView = false;
+	private int fiveDp = dpToPx(getContext(), 5f);
 
 	public ChartView(Context context) {
 		super(context);
@@ -114,10 +117,10 @@ public class ChartView extends ViewGroup {
 
 		canvas.drawRect(selectRect, whitePaint);
 
-		blueStrokePaint.setStrokeWidth(dpToPx(getContext(),5f));
+		blueStrokePaint.setStrokeWidth(fiveDp);
 		canvas.drawLine(selectRect.left,selectRect.top,selectRect.left,selectRect.bottom, blueStrokePaint);
 		canvas.drawLine(selectRect.right,selectRect.top,selectRect.right,selectRect.bottom, blueStrokePaint);
-		blueStrokePaint.setStrokeWidth(dpToPx(getContext(),1f));
+		blueStrokePaint.setStrokeWidth(oneDp);
 		canvas.drawLine(selectRect.left,selectRect.top,selectRect.right,selectRect.top, blueStrokePaint);
 		canvas.drawLine(selectRect.left,selectRect.bottom,selectRect.right,selectRect.bottom, blueStrokePaint);
 
@@ -134,29 +137,40 @@ public class ChartView extends ViewGroup {
 		if(!data.isEmpty()){
 			for (ChartData chartData : data) {
 				float scrollerKoeficientY;
-				float contentKoeficientY;
 				float scrollerKoeficientX;
+				float contentKoeficientY;
+				float contentKoeficientX;
 				float maxY = chartData.getMaxY();
 				scrollerKoeficientY = unselectRect.height() / maxY;
 				contentKoeficientY = contentRect.height() / maxY;
 				Paint paint = new Paint();
 				paint.setStyle(Paint.Style.FILL);
-				paint.setStrokeWidth(dpToPx(getContext(),1f));
+				paint.setStrokeWidth(oneDp);
 
 				for (ChartItem item : chartData.getItems()) {
 					scrollerKoeficientX = canvas.getWidth() / (float)item.getPositions().size();
 					if(item.isLine()){
+						List<Long> contentItems = new ArrayList<>();
 						paint.setColor(Color.parseColor(item.getColor()));
 						for (int i = 0; i < item.getPositions().size() - 1; i++) {
 							float nextX = scrollerKoeficientX * (i + 1);
 							float scrollerY = unselectRect.bottom - (item.getPositions().get(i + 1) * scrollerKoeficientY);
-							float contentY = contentRect.bottom - (item.getPositions().get(i + 1) * contentKoeficientY);
 							canvas.drawLine(i * scrollerKoeficientX, unselectRect.bottom - (item.getPositions().get(i) * scrollerKoeficientY),nextX,scrollerY,paint);
-							canvas.drawLine(i * scrollerKoeficientX, contentRect.bottom - (item.getPositions().get(i) * contentKoeficientY),nextX,contentY,paint);
+							float contentStartX = i * scrollerKoeficientX;
+							if(contentStartX >= selectRect.left && nextX <= selectRect.right){
+								contentItems.add(item.getPositions().get(i));
+							}
+						}
+
+						contentKoeficientX = canvas.getWidth() / (float)contentItems.size();
+						for (int i = 0; i < contentItems.size() - 1; i++) {
+							float nextX = contentKoeficientX * (i + 1);
+							float contentY = contentRect.bottom - (contentItems.get(i + 1) * contentKoeficientY);
+							float contentStartX = i * contentKoeficientX;
+							canvas.drawLine(contentStartX, contentRect.bottom - (contentItems.get(i) * contentKoeficientY),nextX,contentY,paint);
 						}
 					}
 				}
-				initView = true;
 			}
 		}
 		if(!initView){
