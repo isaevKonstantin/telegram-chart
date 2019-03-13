@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -120,11 +121,16 @@ public class ChartData {
 
 class ChartItem {
 
+	private String uuid;
 	private String type;
 	private String title;
 	private String color;
 	private List<Long> positions;
 	private long max;
+
+	public ChartItem() {
+		uuid = UUID.randomUUID().toString();
+	}
 
 	public String getType() {
 		return type;
@@ -164,6 +170,10 @@ class ChartItem {
 
 	public void setMax(long max) {
 		this.max = max;
+	}
+
+	public String getUuid() {
+		return uuid;
 	}
 
 	public void addPosition(Long position){

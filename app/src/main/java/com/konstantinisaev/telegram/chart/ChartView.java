@@ -36,6 +36,8 @@ public class ChartView extends ViewGroup {
 	private float textTwelveInPixels = getResources().getDimensionPixelSize(R.dimen.text12);
 
 	private Rect unselectRect;
+	private boolean moveSelected = false;
+	private boolean initView = false;
 
 	public ChartView(Context context) {
 		super(context);
@@ -69,7 +71,6 @@ public class ChartView extends ViewGroup {
 
 		blueStrokePaint = new Paint();
 		blueStrokePaint.setColor(ContextCompat.getColor(getContext(), R.color.blue_scroller));
-		blueStrokePaint.setStrokeWidth(dpToPx(getContext(),3f));
 	}
 
 	@Override
@@ -79,6 +80,7 @@ public class ChartView extends ViewGroup {
 	@Override
 	protected void dispatchDraw(Canvas canvas) {
 		super.dispatchDraw(canvas);
+		log("dispatchDraw");
 		drawGridBackground(canvas);
 	}
 
@@ -96,20 +98,24 @@ public class ChartView extends ViewGroup {
 
 		int topScrollerY = Math.round(contentHeight + verticalMargin);
 		int bottomScrollerY = Math.round(contentHeight + verticalMargin + scrollerHeight);
-		unselectRect = new Rect(0,topScrollerY, canvas.getWidth(), bottomScrollerY);
-
+		if(unselectRect == null){
+			unselectRect = new Rect(0,topScrollerY, canvas.getWidth(), bottomScrollerY);
+		}
 		canvas.drawRect(unselectRect, grayPaint);
-		if(beginX == 0 ){
+
+		if(!initView){
 			int initialStartPosition = 80;
-			selectRect = new Rect((canvas.getWidth() / 100) * initialStartPosition,topScrollerY + 5,canvas.getWidth(), bottomScrollerY);
+			selectRect = new Rect((canvas.getWidth() / 100) * initialStartPosition,topScrollerY,canvas.getWidth(), bottomScrollerY);
 		}else {
-			selectRect = new Rect(Math.round(beginX),topScrollerY + 5,Math.round(endX),bottomScrollerY - 5);
+			selectRect = new Rect(Math.round(beginX),topScrollerY,Math.round(endX),bottomScrollerY);
 		}
 
 		canvas.drawRect(selectRect, whitePaint);
 
+		blueStrokePaint.setStrokeWidth(dpToPx(getContext(),5f));
 		canvas.drawLine(selectRect.left,selectRect.top,selectRect.left,selectRect.bottom, blueStrokePaint);
 		canvas.drawLine(selectRect.right,selectRect.top,selectRect.right,selectRect.bottom, blueStrokePaint);
+		blueStrokePaint.setStrokeWidth(dpToPx(getContext(),1f));
 		canvas.drawLine(selectRect.left,selectRect.top,selectRect.right,selectRect.top, blueStrokePaint);
 		canvas.drawLine(selectRect.left,selectRect.bottom,selectRect.right,selectRect.bottom, blueStrokePaint);
 
@@ -148,22 +154,48 @@ public class ChartView extends ViewGroup {
 						}
 					}
 				}
+				initView = true;
 			}
 		}
+		if(!initView){
+			initView = true;
+		}
+
 	}
 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-		float x = event.getX();
-		if (event.getAction() == MotionEvent.ACTION_MOVE) {
-			if((x >= selectRect.left && x <= selectRect.right)){
-				beginX = x - getX();
+
+		if (event.getAction() == MotionEvent.ACTION_DOWN) {
+			return true;
+		}
+
+		if (event.getAction() == MotionEvent.ACTION_MOVE){
+			float x = event.getX();
+			float y = event.getY();
+			if(moveSelected || (x >= selectRect.left && x <= selectRect.right && y >= selectRect.top && y <= selectRect.bottom)){
+				moveSelected = true;
+				beginX = x - getX() - (selectRect.width() / 2f);
 				endX = beginX + selectRect.width();
+
+				if(beginX < unselectRect.left){
+					beginX = unselectRect.left;
+					endX = beginX + selectRect.width();
+				}else if(endX > unselectRect.right){
+					endX = unselectRect.right;
+					beginX = unselectRect.right - selectRect.width();
+				}
 				invalidate();
 			}
 			return true;
+
 		}
-		return true;
+		if (event.getAction() == MotionEvent.ACTION_UP){
+			moveSelected = false;
+			return true;
+		}
+
+		return false;
 	}
 
 	private void log(String message){
