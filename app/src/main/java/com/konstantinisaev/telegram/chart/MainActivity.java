@@ -11,12 +11,15 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.View;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -26,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
 	private ChartView chartView;
 	private LinearLayout container;
+	private List<ChartItem> chartData = new ArrayList<>();
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -43,7 +47,7 @@ public class MainActivity extends AppCompatActivity {
 		}
 		try {
 			JSONArray jsonArray = new JSONArray(json);
-			List<ChartData> chartData = new ArrayList<>();
+			chartData.clear();
 			for (int i = 0;i < jsonArray.length();i++){
 				JSONObject jsonObject = jsonArray.getJSONObject(i);
 				ChartData data = ChartData.parseFromJson(jsonObject);
@@ -54,16 +58,37 @@ public class MainActivity extends AppCompatActivity {
 						itemCheckbox.setText(item.getTitle());
 						itemCheckbox.setChecked(true);
 						CompoundButtonCompat.setButtonTintList(itemCheckbox, ColorStateList.valueOf(Color.parseColor(item.getColor())));
+						view.setTag(item.getUuid());
+						itemCheckbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+							@Override
+							public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+								reloadData();
+							}
+						});
 						container.addView(view);
 					}
+					chartData.add(item);
 				}
-				chartData.add(data);
 			}
 			chartView.bindData(chartData);
 			Log.d(MainActivity.class.getSimpleName(),jsonArray.toString());
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
+	}
+
+	private void reloadData(){
+		List<ChartItem> reloadList = new ArrayList<>();
+		for (ChartItem item : chartData) {
+			if(item.isLine()){
+				View view = container.findViewWithTag(item.getUuid());
+				CheckBox checkBox = view.findViewById(R.id.chItem);
+				if(checkBox.isChecked()){
+					reloadList.add(item);
+				}
+			}
+		}
+		chartView.bindData(reloadList);
 
 	}
 

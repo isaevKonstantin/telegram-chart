@@ -43,22 +43,6 @@ public class ChartData {
 		return maxY;
 	}
 
-	public long getMaxX() {
-		return maxX;
-	}
-
-	public List<Integer> getLinesY() {
-		return linesY;
-	}
-
-	private void fillYLines(int counter,int condition) {
-		int firtItem = counter;
-		while (firtItem <= condition){
-			firtItem += counter;
-			linesY.add(firtItem);
-		}
-	}
-
 	public static ChartData parseFromJson(JSONObject jsonObject){
 		List<ChartItem> chartItems = new ArrayList<>();
 		try {
