@@ -36,7 +36,9 @@ public class ChartView extends ViewGroup {
 	private float textTwelveInPixels = getResources().getDimensionPixelSize(R.dimen.text12);
 
 	private Rect unselectRect;
-	private boolean moveSelected = false;
+	private boolean moving = false;
+	private boolean draggingLeft = false;
+	private boolean draggingRight = false;
 	private boolean initView = false;
 
 	public ChartView(Context context) {
@@ -171,27 +173,59 @@ public class ChartView extends ViewGroup {
 		}
 
 		if (event.getAction() == MotionEvent.ACTION_MOVE){
+			log("MotionEvent.ACTION_MOVE");
 			float x = event.getX();
 			float y = event.getY();
-			if(moveSelected || (x >= selectRect.left && x <= selectRect.right && y >= selectRect.top && y <= selectRect.bottom)){
-				moveSelected = true;
-				beginX = x - getX() - (selectRect.width() / 2f);
-				endX = beginX + selectRect.width();
-
-				if(beginX < unselectRect.left){
-					beginX = unselectRect.left;
+			if(draggingLeft || moving || draggingRight || (x >= selectRect.left && x <= selectRect.right && y >= selectRect.top && y <= selectRect.bottom)){
+				if(draggingLeft || (!moving && selectRect.left - dpToPx(getContext(),15f) < x && x < selectRect.left + dpToPx(getContext(),15f))){
+					log("Drag left");
+					draggingLeft = true;
+					beginX = x - getX();
+					if(beginX < unselectRect.left){
+						beginX = unselectRect.left;
+					}
+					if(beginX > selectRect.right - dpToPx(getContext(),15f)){
+						beginX = selectRect.right - dpToPx(getContext(),15f);
+					}
+					endX = selectRect.right;
+					invalidate();
+				}else if(draggingRight || (!moving && selectRect.right - dpToPx(getContext(),15f) < x && x < selectRect.right + dpToPx(getContext(),15f))){
+					draggingRight = true;
+					endX = x - getX();
+					if(endX > unselectRect.right){
+						endX = unselectRect.right;
+					}
+					if(endX < selectRect.left + dpToPx(getContext(),15f)){
+						endX = selectRect.left + dpToPx(getContext(),15f);
+					}
+					beginX = selectRect.left;
+					invalidate();
+				}else if((!draggingLeft && !draggingRight) || moving){
+					log("Move");
+					moving = true;
+					beginX = x - getX() - (selectRect.width() / 2f);
 					endX = beginX + selectRect.width();
-				}else if(endX > unselectRect.right){
-					endX = unselectRect.right;
-					beginX = unselectRect.right - selectRect.width();
+
+					if(beginX < unselectRect.left){
+						beginX = unselectRect.left;
+						endX = beginX + selectRect.width();
+					}else if(endX > unselectRect.right){
+						endX = unselectRect.right;
+						beginX = unselectRect.right - selectRect.width();
+					}
+					invalidate();
 				}
-				invalidate();
+				log(String.format("beginX = %f, endX = %f",beginX,endX));
+				return true;
 			}
-			return true;
+			return false;
 
 		}
-		if (event.getAction() == MotionEvent.ACTION_UP){
-			moveSelected = false;
+		if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_SCROLL){
+			log("MotionEvent.ACTION_UP");
+			moving = false;
+			draggingLeft = false;
+			draggingRight = false;
 			return true;
 		}
 
