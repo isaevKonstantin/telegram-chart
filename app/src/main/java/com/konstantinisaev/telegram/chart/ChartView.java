@@ -13,17 +13,18 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.ViewGroup;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class ChartView extends ViewGroup {
+public class ChartView extends View {
 
 	private static final String TAG = ChartView.class.getSimpleName();
 	private Paint grayPaint;
 	private Paint whitePaint;
-
+	private Paint circlePaint;
 	private Rect selectRect;
 
 	private float beginX;
@@ -38,13 +39,16 @@ public class ChartView extends ViewGroup {
 	private float textTwelveInPixels = getResources().getDimensionPixelSize(R.dimen.text12);
 
 	private Rect unselectRect;
-	private boolean moving = false;
+	private boolean movingScroll = false;
 	private boolean draggingLeft = false;
 	private boolean draggingRight = false;
+	private boolean movingContent = false;
 	private boolean initView = false;
 	private int fiveDp = dpToPx(getContext(), 5f);
 	private float maxYScrollAll = 0f;
-	private int fifteenthDp = dpToPx(getContext(), 15f);
+	private int fifteenthDp = dpToPx(getContext(), 25f);
+	private Rect contentRect;
+	private float contentTouchX = -1f;
 
 	public ChartView(Context context) {
 		super(context);
@@ -78,6 +82,9 @@ public class ChartView extends ViewGroup {
 
 		blueStrokePaint = new Paint();
 		blueStrokePaint.setColor(ContextCompat.getColor(getContext(), R.color.blue_scroller));
+
+		circlePaint = new Paint();
+		circlePaint.setStyle(Paint.Style.FILL);
 	}
 
 	@Override
@@ -85,9 +92,8 @@ public class ChartView extends ViewGroup {
 
 
 	@Override
-	protected void dispatchDraw(Canvas canvas) {
-		super.dispatchDraw(canvas);
-		log("dispatchDraw");
+	protected void onDraw(Canvas canvas) {
+		super.onDraw(canvas);
 		drawGridBackground(canvas);
 	}
 
@@ -100,7 +106,7 @@ public class ChartView extends ViewGroup {
 		textPaint.setTextSize(textHeaderInPixels);
 		canvas.drawText(getResources().getString(R.string.main_chart_title), 0, textHeaderInPixels, textPaint);
 
-		Rect contentRect = new Rect(0,(int)(textHeaderInPixels + verticalMargin), canvas.getWidth(), Math.round(contentHeight));
+		contentRect = new Rect(0,(int)(textHeaderInPixels + verticalMargin), canvas.getWidth(), Math.round(contentHeight));
 		canvas.drawRect(contentRect, whitePaint);
 
 		int topScrollerY = Math.round(contentHeight + verticalMargin);
@@ -171,21 +177,31 @@ public class ChartView extends ViewGroup {
 			while (initialYLines > contentRect.top){
 				initialYLines -= stepYLines;
 				initalYPosition += stepYPositions;
-				canvas.drawLine(contentRect.left,initialYLines,contentRect.right,initialYLines,blueStrokePaint);
+				canvas.drawLine(contentRect.left,initialYLines, contentRect.right,initialYLines,blueStrokePaint);
 				canvas.drawText(String.valueOf(Math.round(initalYPosition)), contentRect.left, initialYLines - dpToPx(getContext(),3f), textPaint);
 			}
-			canvas.drawLine(contentRect.left,contentRect.bottom,contentRect.right,contentRect.bottom,blueStrokePaint);
+			canvas.drawLine(contentRect.left, contentRect.bottom, contentRect.right, contentRect.bottom,blueStrokePaint);
 			canvas.drawText(getContext().getString(R.string.zero), contentRect.left, contentRect.bottom - dpToPx(getContext(),3f), textPaint);
 
 			float contentKoeficientY = contentRect.height() / maxYContentAll;
 			for (ChartItem contentItem : contentItems) {
 				contentKoeficientX = canvas.getWidth() / (float)contentItem.getPositions().size();
+				boolean isDrawCircle = false;
 				paint.setColor(Color.parseColor(contentItem.getColor()));
+				circlePaint.setColor(Color.parseColor(contentItem.getColor()));
 				for (int i = 0; i < contentItem.getPositions().size() - 1; i++) {
 					float nextX = contentKoeficientX * (i + 1);
 					float nextY = contentRect.bottom - (contentItem.getPositions().get(i + 1) * contentKoeficientY);
+					float contentStartY = contentRect.bottom - (contentItem.getPositions().get(i) * contentKoeficientY);
 					float contentStartX = i * contentKoeficientX;
-					canvas.drawLine(contentStartX, contentRect.bottom - (contentItem.getPositions().get(i) * contentKoeficientY),nextX,nextY,paint);
+					canvas.drawLine(contentStartX, contentStartY ,nextX,nextY,paint);
+					if(contentTouchX >= 0f && !isDrawCircle && (contentTouchX - contentStartX) < contentKoeficientX){
+						isDrawCircle = true;
+						canvas.drawLine(contentStartX, contentRect.bottom, contentStartX, contentRect.top,blueStrokePaint);
+						canvas.drawCircle(contentStartX,contentStartY,dpToPx(getContext(),4f),circlePaint);
+						circlePaint.setColor(ContextCompat.getColor(getContext(),R.color.white));
+						canvas.drawCircle(contentStartX,contentStartY,dpToPx(getContext(),3f),circlePaint);
+					}
 				}
 			}
 		}
@@ -193,22 +209,29 @@ public class ChartView extends ViewGroup {
 		if(!initView){
 			initView = true;
 		}
-
 	}
+
 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 
 		if (event.getAction() == MotionEvent.ACTION_DOWN) {
-			return true;
+			float x = event.getX();
+			float y = event.getY();
+			if(movingContent || (x >= contentRect.left && x <= contentRect.right && y >= contentRect.top && y <= contentRect.bottom)) {
+				log("MotionEvent.ACTION_DOWN_Content");
+				movingContent = true;
+				contentTouchX = x;
+				invalidate();
+			}
 		}
 
 		if (event.getAction() == MotionEvent.ACTION_MOVE){
 			log("MotionEvent.ACTION_MOVE");
 			float x = event.getX();
 			float y = event.getY();
-			if(draggingLeft || moving || draggingRight || (x >= selectRect.left && x <= selectRect.right && y >= selectRect.top && y <= selectRect.bottom)){
-				if(draggingLeft || (!moving && selectRect.left - fifteenthDp < x && x < selectRect.left + fifteenthDp)){
+			if(draggingLeft || movingScroll || draggingRight || (x >= selectRect.left && x <= selectRect.right && y >= selectRect.top && y <= selectRect.bottom)){
+				if(draggingLeft || (!movingScroll && selectRect.left - fifteenthDp < x && x < selectRect.left + fifteenthDp && ( y >= selectRect.top && y <= selectRect.bottom))){
 					log("Drag left");
 					draggingLeft = true;
 					beginX = x - getX();
@@ -220,7 +243,7 @@ public class ChartView extends ViewGroup {
 					}
 					endX = selectRect.right;
 					invalidate();
-				}else if(draggingRight || (!moving && selectRect.right - fifteenthDp < x && x < selectRect.right + fifteenthDp)){
+				}else if(draggingRight || (!movingScroll && selectRect.right - fifteenthDp < x && x < selectRect.right + fifteenthDp && ( y >= selectRect.top && y <= selectRect.bottom))){
 					draggingRight = true;
 					endX = x - getX();
 					if(endX > unselectRect.right){
@@ -231,36 +254,42 @@ public class ChartView extends ViewGroup {
 					}
 					beginX = selectRect.left;
 					invalidate();
-				}else if(moving){
-					log("Move");
-					moving = true;
-					beginX = x - getX() - (selectRect.width() / 2f);
-					endX = beginX + selectRect.width();
-
-					if(beginX < unselectRect.left){
-						beginX = unselectRect.left;
-						endX = beginX + selectRect.width();
-					}else if(endX > unselectRect.right){
-						endX = unselectRect.right;
-						beginX = unselectRect.right - selectRect.width();
-					}
-					invalidate();
+				}else {
+					moveX(x);
 				}
-				log(String.format("beginX = %f, endX = %f",beginX,endX));
-				return true;
+			}else if(movingContent || (x >= contentRect.left && x <= contentRect.right && y >= contentRect.top && y <= contentRect.bottom)) {
+				movingContent = true;
+				contentTouchX = x;
+				invalidate();
 			}
-			return false;
-
 		}
-		if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_SCROLL){
-			log("MotionEvent.ACTION_UP");
-			moving = false;
+
+		if(event.getAction() == MotionEvent.ACTION_CANCEL || event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_SCROLL){
+			movingScroll = false;
 			draggingLeft = false;
 			draggingRight = false;
-			return true;
+			movingContent = false;
 		}
+		log(event.toString());
+		return true;
+	}
 
-		return false;
+
+
+	private void moveX(float x) {
+		log("Move");
+		movingScroll = true;
+		beginX = x - getX() - (selectRect.width() / 2f);
+		endX = beginX + selectRect.width();
+
+		if(beginX < unselectRect.left){
+			beginX = unselectRect.left;
+			endX = beginX + selectRect.width();
+		}else if(endX > unselectRect.right){
+			endX = unselectRect.right;
+			beginX = unselectRect.right - selectRect.width();
+		}
+		invalidate();
 	}
 
 	private void log(String message){
@@ -276,6 +305,10 @@ public class ChartView extends ViewGroup {
 			}
 		}
 		invalidate();
+	}
+
+	public boolean isScrollUnavailable(){
+		return movingContent || movingScroll || draggingRight || draggingLeft;
 	}
 
 	public static int dpToPx(Context context, float dp) {

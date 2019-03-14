@@ -1,18 +1,24 @@
 package com.konstantinisaev.telegram.chart;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.support.v4.widget.CompoundButtonCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
 
 	private ChartView chartView;
 	private LinearLayout container;
+	private ScrollView scrollView;
 	private List<ChartItem> chartData = new ArrayList<>();
 
 	@Override
@@ -37,6 +44,8 @@ public class MainActivity extends AppCompatActivity {
 		setContentView(R.layout.activity_main);
 		chartView = findViewById(R.id.chartView);
 		container = findViewById(R.id.container);
+		scrollView = findViewById(R.id.scroll);
+
 		parseJson();
 	}
 
@@ -56,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
 						View view = getLayoutInflater().inflate(R.layout.item_chart,null,false);
 						CheckBox itemCheckbox = view.findViewById(R.id.chItem);
 						itemCheckbox.setText(item.getTitle());
-						itemCheckbox.setChecked(true);
+						itemCheckbox.setChecked(false);
 						CompoundButtonCompat.setButtonTintList(itemCheckbox, ColorStateList.valueOf(Color.parseColor(item.getColor())));
 						view.setTag(item.getUuid());
 						itemCheckbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -114,3 +123,4 @@ public class MainActivity extends AppCompatActivity {
 		return super.onCreateOptionsMenu(menu);
 	}
 }
+

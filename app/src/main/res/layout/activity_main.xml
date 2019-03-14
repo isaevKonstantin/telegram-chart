@@ -2,15 +2,17 @@
 <ScrollView android:layout_height="match_parent"
 	android:layout_width="match_parent"
 	android:fillViewport="true"
-	xmlns:android="http://schemas.android.com/apk/res/android">
-	<LinearLayout
-		xmlns:tools="http://schemas.android.com/tools"
+	android:id="@+id/scroll"
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
+	tools:context=".MainActivity">
+	<com.konstantinisaev.telegram.chart.CustomLinearLayout
 		android:id="@+id/container"
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
 		android:orientation="vertical"
 		android:background="@color/white"
-		tools:context=".MainActivity">
+		>
 
 		<com.konstantinisaev.telegram.chart.ChartView
 			android:id="@+id/chartView"
@@ -18,5 +20,5 @@
 			android:layout_height="400dp"
 			android:layout_margin="16dp"
 			/>
-	</LinearLayout>
+	</com.konstantinisaev.telegram.chart.CustomLinearLayout>
 </ScrollView>
