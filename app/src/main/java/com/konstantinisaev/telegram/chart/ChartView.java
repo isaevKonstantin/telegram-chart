@@ -137,11 +137,12 @@ public class ChartView extends ViewGroup {
 			paint.setStyle(Paint.Style.FILL);
 			paint.setStrokeWidth(oneDp);
 
+			List<ChartItem> contentItems = new ArrayList<>();
 			for (ChartItem item : data) {
 				scrollerKoeficientX = canvas.getWidth() / (float)item.getPositions().size();
 				if(item.isLine()){
-					List<Long> contentItems = new ArrayList<>();
 					paint.setColor(Color.parseColor(item.getColor()));
+					ChartItem copy = ChartItem.copyWithoutPositions(item);
 					for (int i = 0; i < item.getPositions().size() - 1; i++) {
 						float nextX = scrollerKoeficientX * (i + 1);
 						float scrollerY = unselectRect.bottom - (item.getPositions().get(i + 1) * scrollerKoeficientY);
@@ -151,17 +152,13 @@ public class ChartView extends ViewGroup {
 							if(maxYContentAll < item.getPositions().get(i)){
 								maxYContentAll = item.getPositions().get(i);
 							}
-							contentItems.add(item.getPositions().get(i));
+							if(contentItems.contains(copy)){
+								contentItems.get(contentItems.indexOf(copy)).addPosition(item.getPositions().get(i));
+							}else {
+								copy.addPosition(item.getPositions().get(i));
+								contentItems.add(copy);
+							}
 						}
-					}
-
-					float contentKoeficientY = contentRect.height() / maxYContentAll;
-					contentKoeficientX = canvas.getWidth() / (float)contentItems.size();
-					for (int i = 0; i < contentItems.size() - 1; i++) {
-						float nextX = contentKoeficientX * (i + 1);
-						float nextY = contentRect.bottom - (contentItems.get(i + 1) * contentKoeficientY);
-						float contentStartX = i * contentKoeficientX;
-						canvas.drawLine(contentStartX, contentRect.bottom - (contentItems.get(i) * contentKoeficientY),nextX,nextY,paint);
 					}
 				}
 			}
@@ -179,7 +176,20 @@ public class ChartView extends ViewGroup {
 			}
 			canvas.drawLine(contentRect.left,contentRect.bottom,contentRect.right,contentRect.bottom,blueStrokePaint);
 			canvas.drawText(getContext().getString(R.string.zero), contentRect.left, contentRect.bottom - dpToPx(getContext(),3f), textPaint);
+
+			float contentKoeficientY = contentRect.height() / maxYContentAll;
+			for (ChartItem contentItem : contentItems) {
+				contentKoeficientX = canvas.getWidth() / (float)contentItem.getPositions().size();
+				paint.setColor(Color.parseColor(contentItem.getColor()));
+				for (int i = 0; i < contentItem.getPositions().size() - 1; i++) {
+					float nextX = contentKoeficientX * (i + 1);
+					float nextY = contentRect.bottom - (contentItem.getPositions().get(i + 1) * contentKoeficientY);
+					float contentStartX = i * contentKoeficientX;
+					canvas.drawLine(contentStartX, contentRect.bottom - (contentItem.getPositions().get(i) * contentKoeficientY),nextX,nextY,paint);
+				}
+			}
 		}
+
 		if(!initView){
 			initView = true;
 		}

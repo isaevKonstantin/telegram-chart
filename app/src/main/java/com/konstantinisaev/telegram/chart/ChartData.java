@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.json.JSONArray;
@@ -116,6 +117,16 @@ class ChartItem {
 		uuid = UUID.randomUUID().toString();
 	}
 
+	public static ChartItem copyWithoutPositions(ChartItem chartItem){
+		ChartItem copy = new ChartItem();
+		copy.uuid = chartItem.uuid;
+		copy.type = chartItem.type;
+		copy.title = chartItem.title;
+		copy.color = chartItem.color;
+		copy.positions = new ArrayList<>();
+		return copy;
+	}
+
 	public String getType() {
 		return type;
 	}
@@ -169,5 +180,18 @@ class ChartItem {
 
 	public boolean isLine(){
 		return !TextUtils.isEmpty(type) && type.equals("line");
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (!(o instanceof ChartItem)) return false;
+		ChartItem chartItem = (ChartItem) o;
+		return uuid.equals(chartItem.uuid);
+	}
+
+	@Override
+	public int hashCode() {
+		return uuid.hashCode();
 	}
 }

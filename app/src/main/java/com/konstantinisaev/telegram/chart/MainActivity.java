@@ -70,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
 					chartData.add(item);
 				}
 			}
-			chartView.bindData(chartData);
+			reloadData();
 			Log.d(MainActivity.class.getSimpleName(),jsonArray.toString());
 		} catch (JSONException e) {
 			e.printStackTrace();
