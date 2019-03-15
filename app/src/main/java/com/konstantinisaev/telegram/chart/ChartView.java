@@ -5,6 +5,7 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
 import android.os.Build;
 import android.support.annotation.RequiresApi;
@@ -126,7 +127,7 @@ public class ChartView extends View {
 		canvas.drawRect(unselectRect, grayPaint);
 
 		if(!initView){
-			int initialStartPosition = 80;
+			int initialStartPosition = 90;
 			beginX = Math.round((canvas.getWidth() / 100f) * initialStartPosition);
 			endX = canvas.getWidth();
 			selectRect = new Rect((int) beginX,topScrollerY,(int) endX, bottomScrollerY);
@@ -161,10 +162,16 @@ public class ChartView extends View {
 					if(item.isChecked()){
 						paint.setColor(Color.parseColor(item.getColor()));
 						ChartItem copyY = ChartItem.copyWithoutPositions(item);
-						for (int i = 0; i < item.getPositions().size() - 1; i++) {
-							float nextX = scrollerKoeficientX * (i + 1);
-							float scrollerY = unselectRect.bottom - (item.getPositions().get(i + 1) * scrollerKoeficientY);
-							canvas.drawLine(i * scrollerKoeficientX, unselectRect.bottom - (item.getPositions().get(i) * scrollerKoeficientY),nextX,scrollerY,paint);
+						for (int i = 0; i < item.getPositions().size(); i++) {
+							float nextX = -1f;
+							float nextY = -1f;
+							if(i < item.getPositions().size() - 1){
+								nextX = scrollerKoeficientX * (i + 1);
+								nextY = unselectRect.bottom - (item.getPositions().get(i + 1) * scrollerKoeficientY);
+							}
+							if(nextX >= 0 && nextY >= 0){
+								canvas.drawLine(i * scrollerKoeficientX, unselectRect.bottom - (item.getPositions().get(i) * scrollerKoeficientY),nextX,nextY,paint);
+							}
 							float contentStartX = i * scrollerKoeficientX;
 							if(contentStartX >= selectRect.left && nextX <= selectRect.right){
 								if(maxYContentAll < item.getPositions().get(i)){
@@ -210,16 +217,20 @@ public class ChartView extends View {
 			float centerOfInfoY = 0f;
 			float centerOfInfoX = 0f;
 			for (ChartItem contentItem : contentYItems) {
-				contentKoeficientX = canvas.getWidth() / (float)contentItem.getPositions().size();
+				contentKoeficientX = contentRect.width() / (float)contentItem.getPositions().size();
 				boolean isDrawCircle = false;
 				paint.setColor(Color.parseColor(contentItem.getColor()));
+				paint.setStyle(Paint.Style.STROKE);
 				circlePaint.setColor(Color.parseColor(contentItem.getColor()));
-				for (int i = 0; i < contentItem.getPositions().size() - 1; i++) {
-					float nextX = contentKoeficientX * (i + 1);
-					float nextY = contentRect.bottom - (contentItem.getPositions().get(i + 1) * contentKoeficientY);
+				Path path = new Path();
+				for (int i = 0; i < contentItem.getPositions().size(); i++) {
 					float contentStartY = contentRect.bottom - (contentItem.getPositions().get(i) * contentKoeficientY);
-					float contentStartX = i * contentKoeficientX;
-					canvas.drawLine(contentStartX, contentStartY ,nextX,nextY,paint);
+					float contentStartX = (i * contentKoeficientX) + contentKoeficientX;
+					if(i == 0){
+						path.moveTo(0f,contentStartY);
+					}else {
+						path.lineTo(contentStartX,contentStartY);
+					}
 					if(contentTouchX >= 0f && !isDrawCircle && (contentTouchX - contentStartX) < contentKoeficientX){
 						isDrawCircle = true;
 						canvas.drawLine(contentStartX, contentRect.bottom, contentStartX, contentRect.top,blueStrokePaint);
@@ -231,6 +242,9 @@ public class ChartView extends View {
 							centerOfInfoY = contentStartY - dpToPx(getContext(),5f);
 						}
 					}
+				}
+				if(!path.isEmpty()){
+					canvas.drawPath(path,paint);
 				}
 
 				Set<String> dates = new LinkedHashSet<>();
