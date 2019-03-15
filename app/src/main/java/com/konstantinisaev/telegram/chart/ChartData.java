@@ -3,11 +3,12 @@ package com.konstantinisaev.telegram.chart;
 import android.text.TextUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 import org.json.JSONArray;
@@ -17,31 +18,39 @@ import org.json.JSONObject;
 public class ChartData {
 
 	private List<ChartItem> items;
+	private ChartItem xItem;
 	private long maxY;
 	private long maxX;
-	private List<Integer> linesY = new ArrayList<>();
 
 	public List<ChartItem> getItems() {
 		return items;
 	}
 
 	public void setItems(List<ChartItem> items) {
-		this.items = items;
+		this.items = new ArrayList<>();
+		Collections.sort(items, new Comparator<ChartItem>() {
+			@Override
+			public int compare(ChartItem o1, ChartItem o2) {
+				int index = 0;
+				if(o1.isLine() && !o2.isLine()){
+					index = 1;
+				}else if(!o1.isLine() && !o2.isLine()){
+					index = -1;
+				}
+				return index;
+			}
+		});
 		for (ChartItem item : items) {
 			if(item.isLine() ){
-				if(item.getMax() > maxY){
-					maxY = item.getMax();
-				}
+				this.items.add(item);
 			}else {
-				if(item.getMax() > maxX){
-					maxX = item.getMax();
-				}
+				xItem = item;
 			}
 		}
 	}
 
-	public long getMaxY() {
-		return maxY;
+	public ChartItem getxItem() {
+		return xItem;
 	}
 
 	public static ChartData parseFromJson(JSONObject jsonObject){
@@ -112,6 +121,7 @@ class ChartItem {
 	private String color;
 	private List<Long> positions;
 	private long max;
+	private boolean checked;
 
 	public ChartItem() {
 		uuid = UUID.randomUUID().toString();
@@ -193,5 +203,13 @@ class ChartItem {
 	@Override
 	public int hashCode() {
 		return uuid.hashCode();
+	}
+
+	public boolean isChecked() {
+		return checked;
+	}
+
+	public void setChecked(boolean checked) {
+		this.checked = checked;
 	}
 }

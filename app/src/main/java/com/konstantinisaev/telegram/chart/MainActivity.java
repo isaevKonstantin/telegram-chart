@@ -1,19 +1,13 @@
 package com.konstantinisaev.telegram.chart;
 
-import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.os.Build;
-import android.support.annotation.RequiresApi;
 import android.support.v4.widget.CompoundButtonCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -23,9 +17,9 @@ import android.widget.ScrollView;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -36,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
 	private ChartView chartView;
 	private LinearLayout container;
 	private ScrollView scrollView;
-	private List<ChartItem> chartData = new ArrayList<>();
+	private List<ChartData> chartData = new ArrayList<>();
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -76,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
 						});
 						container.addView(view);
 					}
-					chartData.add(item);
+					chartData.add(data);
 				}
 			}
 			reloadData();
@@ -87,17 +81,21 @@ public class MainActivity extends AppCompatActivity {
 	}
 
 	private void reloadData(){
-		List<ChartItem> reloadList = new ArrayList<>();
-		for (ChartItem item : chartData) {
-			if(item.isLine()){
-				View view = container.findViewWithTag(item.getUuid());
-				CheckBox checkBox = view.findViewById(R.id.chItem);
-				if(checkBox.isChecked()){
-					reloadList.add(item);
+		Set<ChartData> reloadSet = new HashSet<>();
+		for (ChartData chartData : chartData) {
+			for (ChartItem item : chartData.getItems()) {
+				if(item.isLine()){
+					View view = container.findViewWithTag(item.getUuid());
+					CheckBox checkBox = view.findViewById(R.id.chItem);
+					if(checkBox.isChecked()){
+						reloadSet.add(chartData);
+					}
+					item.setChecked(checkBox.isChecked());
 				}
 			}
+
 		}
-		chartView.bindData(reloadList);
+		chartView.bindData(new ArrayList<>(reloadSet));
 
 	}
 
