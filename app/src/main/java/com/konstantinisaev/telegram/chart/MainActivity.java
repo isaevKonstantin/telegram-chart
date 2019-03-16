@@ -1,5 +1,6 @@
 package com.konstantinisaev.telegram.chart;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.support.v4.widget.CompoundButtonCompat;
@@ -31,10 +32,12 @@ public class MainActivity extends AppCompatActivity {
 	private LinearLayout container;
 	private ScrollView scrollView;
 	private List<ChartData> chartData = new ArrayList<>();
+	private static Context appContext;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		appContext = getApplicationContext();
 		setContentView(R.layout.activity_main);
 		chartView = findViewById(R.id.chartView);
 		container = findViewById(R.id.container);
@@ -119,6 +122,10 @@ public class MainActivity extends AppCompatActivity {
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.main,menu);
 		return super.onCreateOptionsMenu(menu);
+	}
+
+	public static Context getContext(){
+		return appContext;
 	}
 }
 

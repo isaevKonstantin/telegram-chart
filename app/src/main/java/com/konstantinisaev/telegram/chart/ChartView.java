@@ -12,6 +12,7 @@ import android.support.annotation.RequiresApi;
 import android.support.v4.content.ContextCompat;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.util.Pair;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
@@ -20,33 +21,43 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.TimeZone;
+
+import static com.konstantinisaev.telegram.chart.ResolutionUtils.dpToPx;
 
 public class ChartView extends View {
 
 	private static final String TAG = ChartView.class.getSimpleName();
-	private Paint grayPaint;
+	private Paint scrollerPaint;
 	private Paint whitePaint;
 	private Paint circlePaint;
-	private Rect selectRect;
-
-	private float beginX;
-	private float endX;
 	private Paint blueStrokePaint;
+	private Paint scrollerChartPaint;
+	private Paint upperChartPaint;
+
+	private Rect selectRect;
+	private Rect unselectRect;
+	private Path selectLeftRightBorder = new Path();
+	private Path selectTopBottomBorder = new Path();
+
+	private UpperChartDividers upperChartDividers;
+
+	private List<Pair<Path,String>> scrollerChartPaths = new ArrayList<>();
+	private List<Pair<Path,String>> upperChartPaths = new ArrayList<>();
+
+	private Rect infoRect;
+
 	private List<ChartData> data;
 	private float scrollerHeight = dpToPx(getContext(),80f);
 	private float contentHeight = dpToPx(getContext(),300f);
 	private float verticalMargin = dpToPx(getContext(),16f);
-	private float oneDp = dpToPx(getContext(),1f);
+	private float leftRightSelectedStroke = dpToPx(getContext(),1f);
+	private float bottomSelectedStroke = dpToPx(getContext(),3f);
 	private float textHeaderInPixels = getResources().getDimensionPixelSize(R.dimen.text18);
 	private float textTwelveInPixels = getResources().getDimensionPixelSize(R.dimen.text12);
 
-	private Rect unselectRect;
 	private boolean movingScroll = false;
 	private boolean draggingLeft = false;
 	private boolean draggingRight = false;
@@ -58,7 +69,7 @@ public class ChartView extends View {
 	private int fifteenthDp = dpToPx(getContext(), 25f);
 	private Rect contentRect;
 	private float contentTouchX = -1f;
-	private Rect infoRect;
+	private Paint headerPaint;
 
 	public ChartView(Context context) {
 		super(context);
@@ -82,9 +93,9 @@ public class ChartView extends View {
 	}
 
 	private void init(){
-		grayPaint = new Paint();
-		grayPaint.setStyle(Paint.Style.FILL);
-		grayPaint.setColor(ContextCompat.getColor(getContext(), R.color.gray_scroller));
+		scrollerPaint = new Paint();
+		scrollerPaint.setStyle(Paint.Style.FILL);
+		scrollerPaint.setColor(ContextCompat.getColor(getContext(), R.color.gray_scroller));
 
 		whitePaint = new Paint();
 		whitePaint.setStyle(Paint.Style.FILL);
@@ -92,9 +103,25 @@ public class ChartView extends View {
 
 		blueStrokePaint = new Paint();
 		blueStrokePaint.setColor(ContextCompat.getColor(getContext(), R.color.blue_scroller));
+		blueStrokePaint.setStyle(Paint.Style.STROKE);
+
+		scrollerChartPaint = new Paint();
+		scrollerChartPaint.setStyle(Paint.Style.STROKE);
+		scrollerChartPaint.setStrokeWidth(dpToPx(getContext(),1f));
+
+		upperChartPaint = new Paint();
+		upperChartPaint.setStyle(Paint.Style.STROKE);
+		upperChartPaint.setStrokeWidth(dpToPx(getContext(),1f));
 
 		circlePaint = new Paint();
 		circlePaint.setStyle(Paint.Style.FILL);
+
+		headerPaint = new Paint();
+		headerPaint.setStyle(Paint.Style.FILL);
+		headerPaint.setColor(ContextCompat.getColor(getContext(),R.color.colorPrimary));
+		headerPaint.setTextSize(textHeaderInPixels);
+
+		upperChartDividers = new UpperChartDividers();
 	}
 
 	@Override
@@ -104,226 +131,169 @@ public class ChartView extends View {
 	@Override
 	protected void onDraw(Canvas canvas) {
 		super.onDraw(canvas);
-		drawGridBackground(canvas);
-	}
+		long start = System.currentTimeMillis();
+		log(String.format("onDraw starting time: %s",String.valueOf(start)));
+		if(contentRect == null){
+			contentRect = new Rect(0,(int)(textHeaderInPixels + verticalMargin), getWidth(), Math.round(contentHeight));
+		}
 
-	protected void drawGridBackground(Canvas canvas) {
-
-		Paint textPaint = new Paint();
-		textPaint.setStyle(Paint.Style.FILL);
-
-		textPaint.setColor(ContextCompat.getColor(getContext(),R.color.colorPrimary));
-		textPaint.setTextSize(textHeaderInPixels);
-		canvas.drawText(getResources().getString(R.string.main_chart_title), 0, textHeaderInPixels, textPaint);
-
-		contentRect = new Rect(0,(int)(textHeaderInPixels + verticalMargin), canvas.getWidth(), Math.round(contentHeight));
-		canvas.drawRect(contentRect, whitePaint);
-
-		int topScrollerY = Math.round(contentHeight + verticalMargin);
-		int bottomScrollerY = Math.round(contentHeight + verticalMargin + scrollerHeight);
 		if(unselectRect == null){
-			unselectRect = new Rect(0,topScrollerY, canvas.getWidth(), bottomScrollerY);
-		}
-		canvas.drawRect(unselectRect, grayPaint);
-
-		if(!initView){
-			int initialStartPosition = 90;
-			beginX = Math.round((canvas.getWidth() / 100f) * initialStartPosition);
-			endX = canvas.getWidth();
-			selectRect = new Rect((int) beginX,topScrollerY,(int) endX, bottomScrollerY);
-		}else {
-			selectRect = new Rect(Math.round(beginX),topScrollerY,Math.round(endX),bottomScrollerY);
+			int topScrollerY = Math.round(contentHeight + verticalMargin);
+			int bottomScrollerY = Math.round(contentHeight + verticalMargin + scrollerHeight);
+			unselectRect = new Rect(0,topScrollerY, getWidth(), bottomScrollerY);
 		}
 
-		canvas.drawRect(selectRect, whitePaint);
-
-		blueStrokePaint.setStrokeWidth(fiveDp);
-		canvas.drawLine(selectRect.left,selectRect.top,selectRect.left,selectRect.bottom, blueStrokePaint);
-		canvas.drawLine(selectRect.right,selectRect.top,selectRect.right,selectRect.bottom, blueStrokePaint);
-		blueStrokePaint.setStrokeWidth(oneDp);
-		canvas.drawLine(selectRect.left,selectRect.top,selectRect.right,selectRect.top, blueStrokePaint);
-		canvas.drawLine(selectRect.left,selectRect.bottom,selectRect.right,selectRect.bottom, blueStrokePaint);
-
-		if(!data.isEmpty()){
-			float maxYContentAll = 0f;
-			float scrollerKoeficientY = unselectRect.height() / maxYScrollAll;
-			float scrollerKoeficientX;
-			float contentKoeficientX;
-			Paint paint = new Paint();
-			paint.setStyle(Paint.Style.FILL);
-			paint.setStrokeWidth(oneDp);
-
-			List<ChartItem> contentYItems = new ArrayList<>();
-			List<ChartItem> contentXItems = new ArrayList<>();
-			for (ChartData chartData : data) {
-				for (ChartItem item : chartData.getItems()) {
-					scrollerKoeficientX = canvas.getWidth() / (float)item.getPositions().size();
-					Set<Integer> selectedPositions = new HashSet<>();
-					if(item.isChecked()){
-						paint.setColor(Color.parseColor(item.getColor()));
-						ChartItem copyY = ChartItem.copyWithoutPositions(item);
-						for (int i = 0; i < item.getPositions().size(); i++) {
-							float nextX = -1f;
-							float nextY = -1f;
-							if(i < item.getPositions().size() - 1){
-								nextX = scrollerKoeficientX * (i + 1);
-								nextY = unselectRect.bottom - (item.getPositions().get(i + 1) * scrollerKoeficientY);
-							}
-							if(nextX >= 0 && nextY >= 0){
-								canvas.drawLine(i * scrollerKoeficientX, unselectRect.bottom - (item.getPositions().get(i) * scrollerKoeficientY),nextX,nextY,paint);
-							}
-							float contentStartX = i * scrollerKoeficientX;
-							if(contentStartX >= selectRect.left && nextX <= selectRect.right){
-								if(maxYContentAll < item.getPositions().get(i)){
-									maxYContentAll = item.getPositions().get(i);
-								}
-								if(contentYItems.contains(copyY)){
-									contentYItems.get(contentYItems.indexOf(copyY)).addPosition(item.getPositions().get(i));
-								}else {
-									copyY.addPosition(item.getPositions().get(i));
-									contentYItems.add(copyY);
-								}
-								selectedPositions.add(i);
-							}
-						}
-
-						ChartItem copyX = ChartItem.copyWithoutPositions(chartData.getxItem());
-						if(!contentXItems.contains(chartData.getxItem())){
-							for (Integer selectedPosition : selectedPositions) {
-								copyX.addPosition(chartData.getxItem().getPositions().get(selectedPosition));
-							}
-							contentXItems.add(copyX);
-						}
-					}
-				}
-
-			}
-
-			float stepYLines = contentRect.height() / 5f;
-			float stepYPositions = maxYContentAll / 5f;
-			float initialYLines = contentRect.bottom;
-			float initalYPosition = 0f;
-			textPaint.setTextSize(textTwelveInPixels);
-			while (initialYLines > contentRect.top){
-				initialYLines -= stepYLines;
-				initalYPosition += stepYPositions;
-				canvas.drawLine(contentRect.left,initialYLines, contentRect.right,initialYLines,blueStrokePaint);
-				canvas.drawText(String.valueOf(Math.round(initalYPosition)), contentRect.left, initialYLines - dpToPx(getContext(),3f), textPaint);
-			}
-			canvas.drawLine(contentRect.left, contentRect.bottom, contentRect.right, contentRect.bottom,blueStrokePaint);
-			canvas.drawText(getContext().getString(R.string.zero), contentRect.left, contentRect.bottom - dpToPx(getContext(),3f), textPaint);
-
-			float contentKoeficientY = contentRect.height() / maxYContentAll;
-			float centerOfInfoY = 0f;
-			float centerOfInfoX = 0f;
-			for (ChartItem contentItem : contentYItems) {
-				contentKoeficientX = contentRect.width() / (float)contentItem.getPositions().size();
-				boolean isDrawCircle = false;
-				paint.setColor(Color.parseColor(contentItem.getColor()));
-				paint.setStyle(Paint.Style.STROKE);
-				circlePaint.setColor(Color.parseColor(contentItem.getColor()));
-				Path path = new Path();
-				for (int i = 0; i < contentItem.getPositions().size(); i++) {
-					float contentStartY = contentRect.bottom - (contentItem.getPositions().get(i) * contentKoeficientY);
-					float contentStartX = (i * contentKoeficientX) + contentKoeficientX;
-					if(i == 0){
-						path.moveTo(0f,contentStartY);
-					}else {
-						path.lineTo(contentStartX,contentStartY);
-					}
-					if(contentTouchX >= 0f && !isDrawCircle && (contentTouchX - contentStartX) < contentKoeficientX){
-						isDrawCircle = true;
-						canvas.drawLine(contentStartX, contentRect.bottom, contentStartX, contentRect.top,blueStrokePaint);
-						canvas.drawCircle(contentStartX,contentStartY,dpToPx(getContext(),4f),circlePaint);
-						circlePaint.setColor(ContextCompat.getColor(getContext(),R.color.white));
-						canvas.drawCircle(contentStartX,contentStartY,dpToPx(getContext(),3f),circlePaint);
-						centerOfInfoX = contentStartX;
-						if(centerOfInfoY < contentStartY){
-							centerOfInfoY = contentStartY - dpToPx(getContext(),5f);
-						}
-					}
-				}
-				if(!path.isEmpty()){
-					canvas.drawPath(path,paint);
-				}
-
-				Set<String> dates = new LinkedHashSet<>();
-				List<Integer> xpositions = new ArrayList<>();
-				ChartItem xItem = contentXItems.get(0);
-				for (int i = 0; i < xItem.getPositions().size(); i++) {
-					boolean success = dates.add(formatDate(xItem.getPositions().get(i)));
-					if(success){
-						xpositions.add(i);
-					}
-				}
-
-				int position = 0;
-				for (String date : dates) {
-					textPaint.setTextSize(textTwelveInPixels);
-					canvas.drawText(date,xpositions.get(position) * contentKoeficientX,contentRect.bottom + dpToPx(getContext(),10f),textPaint);
-					position += 1;
-				}
-
-			}
-			if(centerOfInfoX > 0f && centerOfInfoY > 0f){
-				float width = dpToPx(getContext(),100f);
-				float height = dpToPx(getContext(),100f);
-				infoRect = new Rect(Math.round(centerOfInfoX - width / 2),Math.round(centerOfInfoY - height),Math.round(centerOfInfoX + width / 2),Math.round(centerOfInfoY));
-				canvas.drawRect(infoRect,whitePaint);
+		canvas.drawText(getResources().getString(R.string.main_chart_title), 0, textHeaderInPixels, headerPaint);
+		canvas.drawRect(contentRect, whitePaint);
+		canvas.drawRect(unselectRect, scrollerPaint);
+		if(selectRect != null){
+			canvas.drawRect(selectRect, whitePaint);
+			if(!selectLeftRightBorder.isEmpty() && !selectTopBottomBorder.isEmpty()){
+				blueStrokePaint.setStrokeWidth(bottomSelectedStroke);
+				canvas.drawPath(selectLeftRightBorder,blueStrokePaint);
+				blueStrokePaint.setStrokeWidth(leftRightSelectedStroke);
+				canvas.drawPath(selectTopBottomBorder,blueStrokePaint);
 			}
 		}
 
+		for (Pair<Path, String> scrollerChartPath : scrollerChartPaths) {
+			scrollerChartPaint.setColor(Color.parseColor(scrollerChartPath.second));
+			canvas.drawPath(scrollerChartPath.first,scrollerChartPaint);
+		}
+
+		for (Pair<Path, String> upperChartPath : upperChartPaths) {
+			upperChartPaint.setColor(Color.parseColor(upperChartPath.second));
+			canvas.drawPath(upperChartPath.first,upperChartPaint);
+		}
+
+		upperChartDividers.onDraw(canvas);
 		if(!initView){
 			initView = true;
 		}
+
+
+
+		log(String.format("onDraw executing time: %s",String.valueOf(System.currentTimeMillis() - start)));
+		return;
+	}
+
+	private void drawGridBackground(Canvas canvas) {
+
+//
+//			float stepYLines = contentRect.height() / 5f;
+//			float stepYPositions = maxYContentAll / 5f;
+//			float initialYLines = contentRect.bottom;
+//			float initalYPosition = 0f;
+//			headerPaint.setTextSize(textTwelveInPixels);
+//			while (initialYLines > contentRect.top){
+//				initialYLines -= stepYLines;
+//				initalYPosition += stepYPositions;
+//				canvas.drawLine(contentRect.left,initialYLines, contentRect.right,initialYLines,blueStrokePaint);
+//				canvas.drawText(String.valueOf(Math.round(initalYPosition)), contentRect.left, initialYLines - dpToPx(getContext(),3f), headerPaint);
+//			}
+//			canvas.drawLine(contentRect.left, contentRect.bottom, contentRect.right, contentRect.bottom,blueStrokePaint);
+//			canvas.drawText(getContext().getString(R.string.zero), contentRect.left, contentRect.bottom - dpToPx(getContext(),3f), headerPaint);
+//
+//			float contentKoeficientY = contentRect.height() / maxYContentAll;
+//			float centerOfInfoY = 0f;
+//			float centerOfInfoX = 0f;
+//			int infoDatePostion = 0;
+//			Long longDate = 0L;
+//			List<Counters> counters = new ArrayList<>();
+//			for (Pair<ChartItem,ChartItem> pair : contentYItems) {
+//				ChartItem yItem = pair.first;
+//				ChartItem xItem = pair.second;
+//				contentKoeficientX = contentRect.width() / (float)yItem.getPositions().size();
+//				boolean isDrawCircle = false;
+//				paint.setColor(Color.parseColor(yItem.getColor()));
+//				paint.setStyle(Paint.Style.STROKE);
+//				circlePaint.setColor(Color.parseColor(yItem.getColor()));
+//				Path path = new Path();
+//				for (int i = 0; i < yItem.getPositions().size(); i++) {
+//					float contentStartY = contentRect.bottom - (yItem.getPositions().get(i) * contentKoeficientY);
+//					float contentStartX = i * contentKoeficientX;
+//					if(i == 0){
+//						path.moveTo(0f,contentStartY);
+//					}else {
+//						path.lineTo(contentStartX,contentStartY);
+//					}
+//					if(contentTouchX >= 0f && !isDrawCircle && (contentTouchX - contentStartX) < contentKoeficientX){
+//						infoDatePostion = i;
+//						isDrawCircle = true;
+//						canvas.drawLine(contentStartX, contentRect.bottom, contentStartX, contentRect.top,blueStrokePaint);
+//						canvas.drawCircle(contentStartX,contentStartY,dpToPx(getContext(),4f),circlePaint);
+//						circlePaint.setColor(ContextCompat.getColor(getContext(),R.color.white));
+//						canvas.drawCircle(contentStartX,contentStartY,dpToPx(getContext(),3f),circlePaint);
+//						centerOfInfoX = contentStartX;
+//						counters.add(new Counters(yItem.getTitle(),yItem.getColor(),String.valueOf(yItem.getPositions().get(i))));
+//						if(centerOfInfoY < contentStartY){
+//							centerOfInfoY = contentStartY - dpToPx(getContext(),5f);
+//						}
+//					}
+//				}
+//				if(!path.isEmpty()){
+//					canvas.drawPath(path,paint);
+//				}
+//
+//				Set<String> dates = new LinkedHashSet<>();
+//				List<Integer> xpositions = new ArrayList<>();
+//				for (int i = 0; i < xItem.getPositions().size(); i++) {
+//					boolean success = dates.add(formatDate(xItem.getPositions().get(i)));
+//					if(success){
+//						xpositions.add(i);
+//					}
+//				}
+//
+//				int position = 0;
+//				for (String date : dates) {
+//					headerPaint.setTextSize(textTwelveInPixels);
+//					canvas.drawText(date,xpositions.get(position) * contentKoeficientX,contentRect.bottom + dpToPx(getContext(),10f), headerPaint);
+//					position += 1;
+//				}
+//
+//				longDate = xItem.getPositions().get(infoDatePostion);
+//			}
+//			if(centerOfInfoX > 0f && centerOfInfoY > 0f){
+//				float width = dpToPx(getContext(),100f);
+//				float height = dpToPx(getContext(),100f);
+//				infoRect = new Rect(Math.round(centerOfInfoX - width / 3),Math.round(contentRect.top),Math.round(centerOfInfoX + width),Math.round(contentRect.top + height));
+//				headerPaint.setTextSize(textTwelveInPixels);
+//				canvas.drawRect(infoRect,whitePaint);
+//				canvas.drawText(formatDate(longDate),infoRect.left,infoRect.top + dpToPx(getContext(),10f), headerPaint);
+//				int k = 1;
+//				for (Counters counter : counters) {
+//					headerPaint.setColor(Color.parseColor(counter.color));
+//					float textMargin = infoRect.top + dpToPx(getContext(),10f) + (textTwelveInPixels * k);
+//					canvas.drawText(String.format("%s %s",counter.title,counter.counter),infoRect.left,textMargin, headerPaint);
+//					k += 1;
+//				}
+//			}
+//		}
+//
+//		if(!initView){
+//			initView = true;
+//		}
 	}
 
 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-
-		if (event.getAction() == MotionEvent.ACTION_DOWN) {
-			float x = event.getX();
-			float y = event.getY();
-			if(movingContent || (x >= contentRect.left && x <= contentRect.right && y >= contentRect.top && y <= contentRect.bottom)) {
-				handleTouchOnUpperChart(x, y);
-			}
-		}
-
+		float x = event.getX();
+		float y = event.getY();
 		if (event.getAction() == MotionEvent.ACTION_MOVE){
-			float x = event.getX();
-			float y = event.getY();
 			if(draggingLeft || movingScroll || draggingRight || (x >= selectRect.left && x <= selectRect.right && y >= selectRect.top && y <= selectRect.bottom)){
 				if(draggingLeft || (!movingScroll && selectRect.left - fifteenthDp < x && x < selectRect.left + fifteenthDp && ( y >= selectRect.top && y <= selectRect.bottom))){
-					draggingLeft = true;
-					beginX = x - getX();
-					if(beginX < unselectRect.left){
-						beginX = unselectRect.left;
-					}
-					if(beginX > selectRect.right - fifteenthDp){
-						beginX = selectRect.right - fifteenthDp;
-					}
-					endX = selectRect.right;
-					invalidate();
+					dragLeft(x);
 				}else if(draggingRight || (!movingScroll && selectRect.right - fifteenthDp < x && x < selectRect.right + fifteenthDp && ( y >= selectRect.top && y <= selectRect.bottom))){
-					draggingRight = true;
-					endX = x - getX();
-					if(endX > unselectRect.right){
-						endX = unselectRect.right;
-					}
-					if(endX < selectRect.left + fifteenthDp){
-						endX = selectRect.left + fifteenthDp;
-					}
-					beginX = selectRect.left;
-					invalidate();
+					dragRight(x);
 				}else {
 					moveX(x);
 				}
-			}else if(movingContent || (x >= contentRect.left && x <= contentRect.right && y >= contentRect.top && y <= contentRect.bottom)) {
-				handleTouchOnUpperChart(x, y);
+//			}else if(movingContent || (x >= contentRect.left && x <= contentRect.right && y >= contentRect.top && y <= contentRect.bottom)) {
+//				handleTouchOnUpperChart(x, y);
 			}
 		}
-
+//
 		if(event.getAction() == MotionEvent.ACTION_CANCEL || event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_SCROLL){
 			movingScroll = false;
 			draggingLeft = false;
@@ -348,8 +318,8 @@ public class ChartView extends View {
 	private void moveX(float x) {
 		log("Move");
 		movingScroll = true;
-		beginX = x - getX() - (selectRect.width() / 2f);
-		endX = beginX + selectRect.width();
+		float beginX = x - getX() - (selectRect.width() / 2f);
+		float endX = beginX + selectRect.width();
 
 		if(beginX < unselectRect.left){
 			beginX = unselectRect.left;
@@ -358,11 +328,46 @@ public class ChartView extends View {
 			endX = unselectRect.right;
 			beginX = unselectRect.right - selectRect.width();
 		}
+		createSelectRectIfNeed(Math.round(beginX),Math.round(endX));
+		recreateSelectBorder();
+		recreateUpperChart();
+		invalidate();
+	}
+
+	private void dragLeft(float x){
+		draggingLeft = true;
+		float beginX = x - getX();
+		if(beginX < unselectRect.left){
+			beginX = unselectRect.left;
+		}
+		if(beginX > selectRect.right - fifteenthDp){
+			beginX = selectRect.right - fifteenthDp;
+		}
+		float endX = selectRect.right;
+		createSelectRectIfNeed(Math.round(beginX),Math.round(endX));
+		recreateSelectBorder();
+		recreateUpperChart();
+		invalidate();
+	}
+
+	private void dragRight(float x){
+		draggingRight = true;
+		float endX = x - getX();
+		if(endX > unselectRect.right){
+			endX = unselectRect.right;
+		}
+		if(endX < selectRect.left + fifteenthDp){
+			endX = selectRect.left + fifteenthDp;
+		}
+		float beginX = selectRect.left;
+		createSelectRectIfNeed(Math.round(beginX),Math.round(endX));
+		recreateSelectBorder();
+		recreateUpperChart();
 		invalidate();
 	}
 
 	private void log(String message){
-		Log.i(TAG,message);
+		Log.w(TAG,message);
 	}
 
 	public void bindData(List<ChartData> chartData) {
@@ -376,18 +381,133 @@ public class ChartView extends View {
 			}
 
 		}
+		if(selectRect == null && unselectRect != null){
+			int initialStartPosition = 70;
+			int beginX = Math.round((unselectRect.width() / 100f) * initialStartPosition);
+			int endX = Math.round(unselectRect.width());
+			createSelectRectIfNeed(beginX,endX);
+		}
+		recreateSelectBorder();
+		recreateBottomChart();
+		recreateUpperChart();
 		invalidate();
+
+	}
+
+	private void createSelectRectIfNeed(int beginX,int endX){
+		if(unselectRect == null){
+			log("createSelectRectIfNeed return");
+			return;
+		}
+
+		selectRect = new Rect(beginX,unselectRect.top,endX, unselectRect.bottom);
+	}
+
+	private void recreateSelectBorder(){
+		if(selectRect == null){
+			log("recreateSelectBorder return");
+			return;
+		}
+		selectTopBottomBorder.reset();
+		selectLeftRightBorder.reset();
+
+		selectLeftRightBorder.moveTo(selectRect.left,selectRect.top);
+		selectLeftRightBorder.lineTo(selectRect.left,selectRect.bottom);
+		selectLeftRightBorder.moveTo(selectRect.right,selectRect.top);
+		selectLeftRightBorder.lineTo(selectRect.right,selectRect.bottom);
+
+		selectTopBottomBorder.moveTo(selectRect.right,selectRect.bottom);
+		selectTopBottomBorder.lineTo(selectRect.left,selectRect.bottom);
+		selectTopBottomBorder.moveTo(selectRect.right,selectRect.top);
+		selectTopBottomBorder.lineTo(selectRect.left,selectRect.top);
+	}
+
+	private void recreateBottomChart(){
+		if(unselectRect == null){
+			log("recreateBottomChart return");
+			return;
+		}
+		scrollerChartPaths.clear();
+		float scrollerKoeficientY = unselectRect.height() / maxYScrollAll;
+		for (ChartData chartData : data) {
+			for (ChartItem item : chartData.getItems()) {
+				float scrollerKoeficientX = unselectRect.width() / (float)item.getPositions().size();
+				if(item.isChecked()){
+					String color = item.getColor();
+					Path path = new Path();
+					for (int i = 0; i < item.getPositions().size(); i++) {
+						if(i == 0){
+							path.moveTo(unselectRect.left,unselectRect.bottom - (item.getPositions().get(i) * scrollerKoeficientY));
+						}else if(i != item.getPositions().size() - 1){
+							float nextX = scrollerKoeficientX * (i + 1) + scrollerKoeficientX;
+							float nextY = unselectRect.bottom - (item.getPositions().get(i + 1) * scrollerKoeficientY);
+							path.lineTo(nextX,nextY);
+						}
+
+					}
+					scrollerChartPaths.add(new Pair<>(path, color));
+				}
+			}
+		}
+	}
+
+	private void recreateUpperChart(){
+		if(unselectRect == null){
+			log("recreateUpperChart return");
+			return;
+		}
+		float maxYContentAll = 0f;
+		upperChartPaths.clear();
+		for (ChartData chartData : data) {
+			for (ChartItem item : chartData.getItems()) {
+				if(item.isChecked()){
+					float contentnRateX = contentRect.width() / (float)item.getPositions().size();
+					String color = item.getColor();
+					Path path = new Path();
+					List<Long> selectedPositions = new ArrayList<>();
+					for (int i = 0; i < item.getPositions().size(); i++) {
+						float nextX = 0f;
+						if(i == item.getPositions().size() - 1){
+							nextX = unselectRect.right;
+						}else if(i != item.getPositions().size() - 1){
+							nextX = contentnRateX * (i + 1) + contentnRateX;
+						}
+						float contentStartX = i * contentnRateX;
+						if(contentStartX >= selectRect.left && nextX <= selectRect.right) {
+							if (maxYContentAll < item.getPositions().get(i)) {
+								maxYContentAll = item.getPositions().get(i);
+							}
+							selectedPositions.add(item.getPositions().get(i));
+						}
+					}
+					contentnRateX =  contentRect.width() / (float)selectedPositions.size();
+					float contentRateY = contentRect.height() / maxYContentAll;
+					for (int i = 0; i < selectedPositions.size(); i++) {
+						float contentStartY = contentRect.bottom - (selectedPositions.get(i) * contentRateY);
+						float contentStartX = i * contentnRateX;
+						if(path.isEmpty()){
+							path.moveTo(contentRect.left,contentStartY);
+						}else {
+							path.lineTo(contentStartX,contentStartY);
+						}
+					}
+					if(!path.isEmpty()){
+						upperChartPaths.add(new Pair<>(path, color));
+					}
+				}
+			}
+		}
+		upperChartDividers.clear();
+		upperChartDividers.build(new UpperChartDividers.UpperChartDividerParam(contentRect,maxYContentAll));
+
+
 	}
 
 	public boolean isScrollUnavailable(){
 		return movingContent || movingScroll || draggingRight || draggingLeft;
 	}
 
-	public static int dpToPx(Context context, float dp) {
-		Resources r = context.getResources();
-		return (int) (TypedValue.applyDimension(
-			TypedValue.COMPLEX_UNIT_DIP, dp, r.getDisplayMetrics()) + 0.5f);
-	}
+
 
 	private String formatDate(long date){
 		String format = "d MMM";
@@ -398,5 +518,19 @@ public class ChartView extends View {
 		Date convertedDate = calendar.getTime();
 		return dateFormat.format(convertedDate);
 	}
+
+	private class Counters{
+
+		public final String title;
+		public final String color;
+		public final String counter;
+
+		public Counters(String title, String color, String counter) {
+			this.title = title;
+			this.color = color;
+			this.counter = counter;
+		}
+	}
 }
+
 
