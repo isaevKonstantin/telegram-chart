@@ -33,6 +33,7 @@ public class UpperChartDividers implements DrawComponent<UpperChartDividers.Uppe
 
 	@Override
 	public void build(UpperChartDividerParam params) {
+		contentLinesPath.reset();
 		param = params;
 		float stepYLines = params.contentRect.height() / 5f;
 		float initialYLines = params.contentRect.bottom;
@@ -44,7 +45,6 @@ public class UpperChartDividers implements DrawComponent<UpperChartDividers.Uppe
 			contentLinesPath.moveTo(params.contentRect.left,initialYLines);
 			contentLinesPath.lineTo(params.contentRect.right,initialYLines);
 			textPositions.put(initialYLines - dpToPx(getContext(),3f),String.valueOf(Math.round(initalYPosition)));
-//					contentLinesPath.(String.valueOf(Math.round(initalYPosition)), contentRect.left, , headerPaint);
 		}
 		contentLinesPath.moveTo(params.contentRect.left, params.contentRect.bottom);
 		contentLinesPath.lineTo(params.contentRect.right, params.contentRect.bottom);

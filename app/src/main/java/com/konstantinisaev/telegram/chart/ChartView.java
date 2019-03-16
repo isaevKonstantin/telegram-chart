@@ -1,7 +1,6 @@
 package com.konstantinisaev.telegram.chart;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -13,17 +12,13 @@ import android.support.v4.content.ContextCompat;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Pair;
-import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
+import java.util.Set;
 
 import static com.konstantinisaev.telegram.chart.ResolutionUtils.dpToPx;
 
@@ -39,10 +34,11 @@ public class ChartView extends View {
 
 	private Rect selectRect;
 	private Rect unselectRect;
-	private Path selectLeftRightBorder = new Path();
-	private Path selectTopBottomBorder = new Path();
+
 
 	private UpperChartDividers upperChartDividers;
+	private SelectedRectBorder selectedRectBorder;
+	private UpperDateDrawer upperDateDrawer;
 
 	private List<Pair<Path,String>> scrollerChartPaths = new ArrayList<>();
 	private List<Pair<Path,String>> upperChartPaths = new ArrayList<>();
@@ -53,8 +49,7 @@ public class ChartView extends View {
 	private float scrollerHeight = dpToPx(getContext(),80f);
 	private float contentHeight = dpToPx(getContext(),300f);
 	private float verticalMargin = dpToPx(getContext(),16f);
-	private float leftRightSelectedStroke = dpToPx(getContext(),1f);
-	private float bottomSelectedStroke = dpToPx(getContext(),3f);
+
 	private float textHeaderInPixels = getResources().getDimensionPixelSize(R.dimen.text18);
 	private float textTwelveInPixels = getResources().getDimensionPixelSize(R.dimen.text12);
 
@@ -122,6 +117,8 @@ public class ChartView extends View {
 		headerPaint.setTextSize(textHeaderInPixels);
 
 		upperChartDividers = new UpperChartDividers();
+		selectedRectBorder = new SelectedRectBorder();
+		upperDateDrawer = new UpperDateDrawer();
 	}
 
 	@Override
@@ -148,12 +145,7 @@ public class ChartView extends View {
 		canvas.drawRect(unselectRect, scrollerPaint);
 		if(selectRect != null){
 			canvas.drawRect(selectRect, whitePaint);
-			if(!selectLeftRightBorder.isEmpty() && !selectTopBottomBorder.isEmpty()){
-				blueStrokePaint.setStrokeWidth(bottomSelectedStroke);
-				canvas.drawPath(selectLeftRightBorder,blueStrokePaint);
-				blueStrokePaint.setStrokeWidth(leftRightSelectedStroke);
-				canvas.drawPath(selectTopBottomBorder,blueStrokePaint);
-			}
+			selectedRectBorder.onDraw(canvas);
 		}
 
 		for (Pair<Path, String> scrollerChartPath : scrollerChartPaths) {
@@ -167,6 +159,8 @@ public class ChartView extends View {
 		}
 
 		upperChartDividers.onDraw(canvas);
+		upperDateDrawer.onDraw(canvas);
+
 		if(!initView){
 			initView = true;
 		}
@@ -179,20 +173,6 @@ public class ChartView extends View {
 
 	private void drawGridBackground(Canvas canvas) {
 
-//
-//			float stepYLines = contentRect.height() / 5f;
-//			float stepYPositions = maxYContentAll / 5f;
-//			float initialYLines = contentRect.bottom;
-//			float initalYPosition = 0f;
-//			headerPaint.setTextSize(textTwelveInPixels);
-//			while (initialYLines > contentRect.top){
-//				initialYLines -= stepYLines;
-//				initalYPosition += stepYPositions;
-//				canvas.drawLine(contentRect.left,initialYLines, contentRect.right,initialYLines,blueStrokePaint);
-//				canvas.drawText(String.valueOf(Math.round(initalYPosition)), contentRect.left, initialYLines - dpToPx(getContext(),3f), headerPaint);
-//			}
-//			canvas.drawLine(contentRect.left, contentRect.bottom, contentRect.right, contentRect.bottom,blueStrokePaint);
-//			canvas.drawText(getContext().getString(R.string.zero), contentRect.left, contentRect.bottom - dpToPx(getContext(),3f), headerPaint);
 //
 //			float contentKoeficientY = contentRect.height() / maxYContentAll;
 //			float centerOfInfoY = 0f;
@@ -396,7 +376,6 @@ public class ChartView extends View {
 
 	private void createSelectRectIfNeed(int beginX,int endX){
 		if(unselectRect == null){
-			log("createSelectRectIfNeed return");
 			return;
 		}
 
@@ -405,26 +384,13 @@ public class ChartView extends View {
 
 	private void recreateSelectBorder(){
 		if(selectRect == null){
-			log("recreateSelectBorder return");
 			return;
 		}
-		selectTopBottomBorder.reset();
-		selectLeftRightBorder.reset();
-
-		selectLeftRightBorder.moveTo(selectRect.left,selectRect.top);
-		selectLeftRightBorder.lineTo(selectRect.left,selectRect.bottom);
-		selectLeftRightBorder.moveTo(selectRect.right,selectRect.top);
-		selectLeftRightBorder.lineTo(selectRect.right,selectRect.bottom);
-
-		selectTopBottomBorder.moveTo(selectRect.right,selectRect.bottom);
-		selectTopBottomBorder.lineTo(selectRect.left,selectRect.bottom);
-		selectTopBottomBorder.moveTo(selectRect.right,selectRect.top);
-		selectTopBottomBorder.lineTo(selectRect.left,selectRect.top);
+		selectedRectBorder.build(selectRect);
 	}
 
 	private void recreateBottomChart(){
 		if(unselectRect == null){
-			log("recreateBottomChart return");
 			return;
 		}
 		scrollerChartPaths.clear();
@@ -458,10 +424,13 @@ public class ChartView extends View {
 		}
 		float maxYContentAll = 0f;
 		upperChartPaths.clear();
+		int infoDatePostion = 0;
+		Set<String> dates = new LinkedHashSet<>();
+		List<Float> datePositions = new ArrayList<>();
 		for (ChartData chartData : data) {
 			for (ChartItem item : chartData.getItems()) {
 				if(item.isChecked()){
-					float contentnRateX = contentRect.width() / (float)item.getPositions().size();
+					float contentRateX = contentRect.width() / (float)item.getPositions().size();
 					String color = item.getColor();
 					Path path = new Path();
 					List<Long> selectedPositions = new ArrayList<>();
@@ -470,9 +439,9 @@ public class ChartView extends View {
 						if(i == item.getPositions().size() - 1){
 							nextX = unselectRect.right;
 						}else if(i != item.getPositions().size() - 1){
-							nextX = contentnRateX * (i + 1) + contentnRateX;
+							nextX = contentRateX * (i + 1) + contentRateX;
 						}
-						float contentStartX = i * contentnRateX;
+						float contentStartX = i * contentRateX;
 						if(contentStartX >= selectRect.left && nextX <= selectRect.right) {
 							if (maxYContentAll < item.getPositions().get(i)) {
 								maxYContentAll = item.getPositions().get(i);
@@ -480,11 +449,12 @@ public class ChartView extends View {
 							selectedPositions.add(item.getPositions().get(i));
 						}
 					}
-					contentnRateX =  contentRect.width() / (float)selectedPositions.size();
+
+					contentRateX =  contentRect.width() / (float)selectedPositions.size();
 					float contentRateY = contentRect.height() / maxYContentAll;
 					for (int i = 0; i < selectedPositions.size(); i++) {
 						float contentStartY = contentRect.bottom - (selectedPositions.get(i) * contentRateY);
-						float contentStartX = i * contentnRateX;
+						float contentStartX = i * contentRateX;
 						if(path.isEmpty()){
 							path.moveTo(contentRect.left,contentStartY);
 						}else {
@@ -494,30 +464,47 @@ public class ChartView extends View {
 					if(!path.isEmpty()){
 						upperChartPaths.add(new Pair<>(path, color));
 					}
+
+					ChartItem xItem = chartData.getxItem();
+					for (int i = 0; i < selectedPositions.size(); i++) {
+						boolean success = dates.add(DateUtils.formatDate(xItem.getPositions().get(i)));
+						if(success){
+							datePositions.add(i * contentRateX);
+						}
+					}
 				}
 			}
 		}
+
+
+
 		upperChartDividers.clear();
 		upperChartDividers.build(new UpperChartDividers.UpperChartDividerParam(contentRect,maxYContentAll));
+		upperDateDrawer.build(new UpperDateDrawer.UpperDateDrawerParams(dates,datePositions, contentRect.bottom + dpToPx(getContext(),10f)));
 
 
+
+//		Set<String> dates = new LinkedHashSet<>();
+//				List<Integer> xpositions = new ArrayList<>();
+//				for (int i = 0; i < xItem.getPositions().size(); i++) {
+//					boolean success = dates.add(formatDate(xItem.getPositions().get(i)));
+//					if(success){
+//						xpositions.add(i);
+//					}
+//				}
+//
+//				int position = 0;
+//				for (String date : dates) {
+//					headerPaint.setTextSize(textTwelveInPixels);
+//					canvas.drawText(date,xpositions.get(position) * contentKoeficientX,contentRect.bottom + dpToPx(getContext(),10f), headerPaint);
+//					position += 1;
+//				}
 	}
 
 	public boolean isScrollUnavailable(){
 		return movingContent || movingScroll || draggingRight || draggingLeft;
 	}
 
-
-
-	private String formatDate(long date){
-		String format = "d MMM";
-		SimpleDateFormat dateFormat = new SimpleDateFormat(format, Locale.getDefault());
-		Calendar calendar = Calendar.getInstance();
-		calendar.setTimeZone(TimeZone.getDefault());
-		calendar.setTimeInMillis(date);
-		Date convertedDate = calendar.getTime();
-		return dateFormat.format(convertedDate);
-	}
 
 	private class Counters{
 
